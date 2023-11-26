@@ -1,15 +1,16 @@
 /**
  * gaino
- * ~ 7th generation of my engine (golf/gamma)
- * ~ after: force (foxtrot), e-day (echo), dixie (delta)
+ * ~ 7th generation of my web engine (golf/gamma)
  * authored by 9r3i
  * https://github.com/9r3i/giano.js
  * started at november 21st 2023
+ * continued at november 27th 2023 -v1.1.0
+ *   - add some request methods
+ *   - fix initializing
  * requires:
  *   - virtual.js - https://github.com/9r3i/virtual.js - v1.0.0
  * usage: new gaino(virtual object, object config)
- * sample:
- * (config object in json)
+ * sample: (config object in json)
   {
     "load": [
       "router.js",
@@ -27,11 +28,23 @@
     }
   }
  * note: load files must be registered to virtual object
+ * history: 
+ *   - force (foxtrot), 6th generation (2022)
+ *     - https://github.com/9r3i/force
+ *   - e-day (echo), 5th generation (2018)
+ *     - https://github.com/9r3i/eday
+ *   - dixie (delta), 4th generation (2013-2020) *
+ *     - https://github.com/9r3i/dixie
+ *   - charlie (charlie), 3rd generation (2013) **
+ *   - black-apple (beta), 2nd generation (2012-2013) **
+ *   - x1 to x9 (alpha), 1st generation (2012) **
+ * (*) discontinued and archived
+ * (**) discontinued and unloaded
  */
 ;function gaino(v,c){
 /* the version */
 Object.defineProperty(this,'version',{
-  value:'1.0.0',
+  value:'1.1.0',
   writable:false,
 });
 /* the virtual */
@@ -42,53 +55,57 @@ Object.defineProperty(this,'virtual',{
 /* the config */
 this.config=c;
 /* initialize as constructor */
-this.init=function(){
+this.init=async function(){
   let app=this.virtual,
   cnf=this.config,
   _this=this;
-  this.onReady(async function(n,b){
-    if(!b){
-      alert('Error: document.body is not loaded!');
-      return;
-    }
-    /* gaino.load */
-    if(cnf.hasOwnProperty('load')
-      &&Array.isArray(cnf.load)){
-      for(let file of cnf.load){
-        if(app.files.hasOwnProperty(file)){
-          await app.load(file);
-        }
-      }
-    }
-    /* gaino.start */
-    if(cnf.hasOwnProperty('start')){
-      let start=cnf.start;
-      /* start as string */
-      if(typeof start==='string'){
-        return eval(start);
-      }else if(typeof start==='object'&&start!==null){
-        /* start as object -- function or class */
-        if(start.hasOwnProperty('function')
-          &&window.hasOwnProperty(start.function)
-          &&typeof window[start.function]==='function'){
-          let args=start.hasOwnProperty('args')?start.args:null;
-          return window[start.function].call(_this,app,args);
-        }else if(start.hasOwnProperty('class')
-          &&window.hasOwnProperty(start.class)){
-          let nap=new window[start.class](_this,app),
-          args=start.hasOwnProperty('args')
-            &&Array.isArray(start.args)?start.args:[];
-          if(start.hasOwnProperty('method')
-            &&nap.hasOwnProperty(start.method)
-            &&typeof nap[start.method]==='function'){
-            return nap[start.method].apply(nap,args);
-          }
-        }
-      }
-    }
-  });
-  /* self update for the app -- silently */
+  /* self update for the app -- silently without waiting */
   app.update('gaino.js');
+  /* load registered files */
+  if(cnf.hasOwnProperty('load')
+    &&Array.isArray(cnf.load)){
+    for(let file of cnf.load){
+      if(app.files.hasOwnProperty(file)){
+        await app.load(file);
+      }
+    }
+  }
+  /* check for starting app */
+  if(!cnf.hasOwnProperty('start')){
+    return;
+  }
+  /* check if document is ready */
+  if(!await this.isReady()){
+    alert('Error: document.body is not loaded!');
+    return;
+  }
+  /* ready to start */
+  let start=cnf.start;
+  /* start as string */
+  if(typeof cnf.start==='string'){
+    return eval(start);
+  }
+  /* check for start object */
+  if(typeof start!=='object'||start===null){
+    return;
+  }
+  /* start as object -- function or class */
+  if(start.hasOwnProperty('function')
+    &&window.hasOwnProperty(start.function)
+    &&typeof window[start.function]==='function'){
+    let args=start.hasOwnProperty('args')?start.args:null;
+    return window[start.function].call(this,app,args);
+  }else if(start.hasOwnProperty('class')
+    &&start.hasOwnProperty('method')
+    &&window.hasOwnProperty(start.class)){
+    let nap=new window[start.class](this,app),
+    args=start.hasOwnProperty('args')
+      &&Array.isArray(start.args)?start.args:[];
+    if(nap.hasOwnProperty(start.method)
+      &&typeof nap[start.method]==='function'){
+      return nap[start.method].apply(nap,args);
+    }
+  }
 };
 /* fetch method of stream -- with Promise */
 this.fetch=function(url,cnf){
@@ -120,7 +137,10 @@ this.stream=function(url,cb,cnf){
   er=cnf.hasOwnProperty('error')
         &&typeof cnf.error==='function'
         ?cnf.error:cb,
-  mts=['GET','POST','PUT','UPDATE','OPTIONS','HEAD','DELETE'],
+  mts=[
+    'GET','POST','PUT','PATCH','OPTIONS',
+    'HEAD','DELETE','TRACE','CONNECT',
+  ],
   mtd=cnf.hasOwnProperty('method')
         &&typeof cnf.method==='string'
         &&mts.hasOwnProperty(cnf.method)
@@ -197,13 +217,22 @@ this.toString=function(a){
     }
   }return r;
 };
+/* is document.body ready -- with Promise */
+this.isReady=function(){
+  let _this=this;
+  return new Promise(resolve=>{
+    return _this.onReady(r=>{
+      return resolve(r);
+    });
+  });
+};
 /* on document.body ready */
 this.onReady=function(cb,i){
   i=typeof i==='number'&&i%1===0?i:0;
   let _this=this,
   b=document.querySelector('body');
   if(i>=0x3e8||b){
-    return typeof cb==='function'?cb(i,b):false;
+    return typeof cb==='function'?cb(b,i):false;
   }i++;
   return setTimeout(()=>{
     return _this.onReady(cb,i);
@@ -212,4 +241,3 @@ this.onReady=function(cb,i){
 /* start initializing */
 return this.init();
 };
-
