@@ -1,5 +1,5 @@
 /**
- * gaino
+ * gaino.js
  * ~ 7th generation of my web engine (golf/gamma)
  * authored by 9r3i
  * https://github.com/9r3i/giano.js
@@ -7,6 +7,8 @@
  * continued at november 27th 2023 -v1.1.0
  *   - add some request methods
  *   - fix initializing
+ * continued at november 29th 2023 -v1.2.0
+ *   - fix stream method, header and body
  * requires:
  *   - virtual.js - https://github.com/9r3i/virtual.js - v1.0.0
  * usage: new gaino(virtual object, object config)
@@ -44,7 +46,7 @@
 ;function gaino(v,c){
 /* the version */
 Object.defineProperty(this,'version',{
-  value:'1.1.0',
+  value:'1.2.0',
   writable:false,
 });
 /* the virtual */
@@ -122,9 +124,9 @@ this.stream=function(url,cb,cnf){
   cb=typeof cb==='function'?cb:function(){};
   cnf=typeof cnf==='object'&&cnf!==null?cnf:{};
   /* config */
-  let dt=cnf.hasOwnProperty('data')
-        &&typeof cnf.data==='object'
-        &&cnf.data!==null?cnf.data:{},
+  let dt=cnf.hasOwnProperty('body')
+        &&typeof cnf.body==='object'
+        &&cnf.body!==null?cnf.body:{},
   hd=cnf.hasOwnProperty('headers')
         &&typeof cnf.headers==='object'
         &&cnf.headers!==null?cnf.headers:{},
@@ -143,18 +145,30 @@ this.stream=function(url,cb,cnf){
   ],
   mtd=cnf.hasOwnProperty('method')
         &&typeof cnf.method==='string'
-        &&mts.hasOwnProperty(cnf.method)
+        &&mts.indexOf(cnf.method)>=0
         ?cnf.method:'GET',
   head=cnf.hasOwnProperty('head')
         &&typeof cnf.head==='function'
         ?cnf.head:function(){},
   xhr=new XMLHttpRequest(),
-  query=this.buildQuery(dt),
   qmark=url.match(/\?/)?'&':'?',
-  uri=mtd=='GET'?url+qmark+query:url,
+  uri=mtd=='GET'?url+qmark+this.buildQuery(dt):url,
+  mimeType='application/x-www-form-urlencoded',
   temp=null;
   xhr.open(mtd,uri,true);
-  hd['Content-type']='application/x-www-form-urlencoded';
+  for(var i in hd){
+    if(i.toLowerCase()=='content-type'&&i!='Content-Type'){
+      hd['Content-Type']=hd[i];
+      delete hd[i];
+    }
+  }
+  if(!hd.hasOwnProperty('Content-Type')){
+    if(dt instanceof FormData){
+      hd['Content-Type']='multipart/form-data';
+    }else{
+      hd['Content-Type']=mimeType;
+    }
+  }
   for(var i in hd){xhr.setRequestHeader(i,hd[i]);}
   xhr.upload.addEventListener('progress',up,false);
   xhr.addEventListener('progress',dl,false);
@@ -170,7 +184,16 @@ this.stream=function(url,cb,cnf){
       return false;
     }return er(err+'\n\n'+hds,xhr,hds);
   };
-  xhr.send(mtd=='GET'?temp:query);
+  if(mtd=='GET'){
+    temp=null;
+  }else if(hd['Content-Type']==mimeType){
+    temp=this.buildQuery(dt);
+  }else if(hd['Content-Type']=='application/json'){
+    temp=JSON.stringify(dt);
+  }else{
+    temp=dt;
+  }
+  xhr.send(temp);
   return xhr;
 };
 /* buildQuery v2, build http query recusively */
