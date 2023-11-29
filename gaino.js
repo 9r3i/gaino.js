@@ -46,7 +46,7 @@
 ;function gaino(v,c){
 /* the version */
 Object.defineProperty(this,'version',{
-  value:'1.2.0',
+  value:'1.2.1',
   writable:false,
 });
 /* the virtual */
@@ -162,12 +162,9 @@ this.stream=function(url,cb,cnf){
       delete hd[i];
     }
   }
-  if(!hd.hasOwnProperty('Content-Type')){
-    if(dt instanceof FormData){
-      hd['Content-Type']='multipart/form-data';
-    }else{
-      hd['Content-Type']=mimeType;
-    }
+  if(!hd.hasOwnProperty('Content-Type')
+    &&!(dt instanceof FormData)){
+    hd['Content-Type']=mimeType;
   }
   for(var i in hd){xhr.setRequestHeader(i,hd[i]);}
   xhr.upload.addEventListener('progress',up,false);
