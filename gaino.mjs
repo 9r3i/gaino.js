@@ -9,10 +9,13 @@
  *   - fix initializing
  * continued at november 29th 2023 -v1.2.0
  *   - fix stream method, header and body
+ * continued at december 8th 2023 -v1.3.0
+ *   - more portable and return as its own object
  * requires:
- *   - virtual.js - https://github.com/9r3i/virtual.js - v1.0.0
+ *   - virtual.js - https://github.com/9r3i/virtual.js - v1.1.0
+ *     virtual.js is IMPORTANT! for gaino.js
  * usage: new gaino(virtual object, object config)
- * sample: (config object in json)
+ * sample: (config object in json) -- optional
   {
     "load": [
       "router.js",
@@ -46,35 +49,40 @@
 ;function gaino(v,c){
 /* the version */
 Object.defineProperty(this,'version',{
-  value:'1.2.1',
+  value:'1.3.0',
   writable:false,
 });
 /* the virtual */
 Object.defineProperty(this,'virtual',{
-  value:v,
+  value:typeof virtual==='function'
+    &&v instanceof virtual?v
+    :typeof virtual==='function'
+      ?new virtual:null,
   writable:false,
 });
 /* the config */
-this.config=c;
+this.config=typeof c==='object'&&c!==null?c:{};
 /* initialize as constructor */
 this.init=async function(){
   let app=this.virtual,
   cnf=this.config,
   _this=this;
   /* self update for the app -- silently without waiting */
-  app.update('gaino.js');
-  /* load registered files */
-  if(cnf.hasOwnProperty('load')
-    &&Array.isArray(cnf.load)){
-    for(let file of cnf.load){
-      if(app.files.hasOwnProperty(file)){
-        await app.load(file);
+  if(app!==null){
+    app.update('gaino.js');
+    /* load registered files */
+    if(cnf.hasOwnProperty('load')
+      &&Array.isArray(cnf.load)){
+      for(let file of cnf.load){
+        if(app.files.hasOwnProperty(file)){
+          await app.load(file);
+        }
       }
     }
   }
   /* check for starting app */
   if(!cnf.hasOwnProperty('start')){
-    return;
+    return this;
   }
   /* check if document is ready */
   if(!await this.isReady()){
@@ -108,6 +116,7 @@ this.init=async function(){
       return nap[start.method].apply(nap,args);
     }
   }
+  return this;
 };
 /* fetch method of stream -- with Promise */
 this.fetch=function(url,cnf){
@@ -259,7 +268,8 @@ this.onReady=function(cb,i){
   },1);
 };
 /* start initializing */
-return this.init();
+this.init();
+return this;
 };
 
 export default gaino;
