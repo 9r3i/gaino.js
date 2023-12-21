@@ -11,6 +11,8 @@
  *   - fix stream method, header and body
  * continued at december 8th 2023 -v1.3.0
  *   - more portable and return as its own object
+ * continued at december 21st 2023 -v1.3.1
+ *   - add config update for silet update
  * requires:
  *   - virtual.js - https://github.com/9r3i/virtual.js - v1.1.0
  *     virtual.js is IMPORTANT! for gaino.js
@@ -49,7 +51,7 @@
 ;function gaino(v,c){
 /* the version */
 Object.defineProperty(this,'version',{
-  value:'1.3.0',
+  value:'1.3.1',
   writable:false,
 });
 /* the virtual */
@@ -69,7 +71,10 @@ this.init=async function(){
   _this=this;
   /* self update for the app -- silently without waiting */
   if(app!==null){
-    app.update('gaino.js');
+    if(cnf.hasOwnProperty('update')
+      &&cnf.update===true){
+      app.update('gaino.js');
+    }
     /* load registered files */
     if(cnf.hasOwnProperty('load')
       &&Array.isArray(cnf.load)){
